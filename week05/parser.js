@@ -1,7 +1,7 @@
 let currentToken = null;
 let currentAttribute = null;
 let currentTextNode = null;
-
+const layout = require("./layout.js");
 const css = require("css");
 //加入一个新的函数，addCSSRules,这里我们把CSS规则暂存到一个数组里
 let rules = [];
@@ -27,6 +27,26 @@ function match(element, selector) {
   }
   return false;
 }
+function specificity(selector) {
+  var p = [0, 0, 0, 0];
+  var selectorParts = selector.split(" ");
+  for (var part of selectorParts) {
+    if (part.charAt(0) === "#") {
+      p[1] += 1;
+    } else if (part.charAt(0) === ".") {
+      p[2] += 1;
+    } else {
+      p[3] += 1;
+    }
+  }
+  return p;
+}
+function compare(sp1, sp2) {
+  if (sp1[0] - sp2[0]) return sp1[0] - sp2[0];
+  if (sp[1] - sp2[1]) return sp1[1] - sp2[1];
+  if (sp1[2] - sp2[2]) return sp1[2] - sp2[2];
+  return sp1[3] - sp2[3];
+}
 function computeCSS(element) {
   // console.log(rules);
   // console.log("compute CSS for Element", element);
@@ -49,7 +69,23 @@ function computeCSS(element) {
     }
     if (matched) {
       //如果匹配到，我们要加入
-      console.log("Element", element, "matched rule", rule);
+      // console.log("Element", element, "matched rule", rule);
+      var sp = specificity(rule.selectors[0]);
+      var computedStyle = element.computedStyle;
+      for (var declaration of rule.declarations) {
+        if (!computedStyle[declaration.property]) {
+          computedStyle[declaration.property] = {};
+          computedStyle[declaration.property].value = declaration.value;
+        }
+        if (!computedStyle[declaration.property].specificity) {
+          computedStyle[declaration.property].value = declaration.value;
+          computedStyle[declaration.property].specificity = sp;
+        } else if (compare(computedStyle[declaration.property].specificity)) {
+          computedStyle[declaration.property].value = declaration.value;
+          computedStyle[declaration.property].specificity = sp;
+        }
+      }
+      console.log(element.computedStyle);
     }
   }
 }
@@ -89,6 +125,7 @@ function emit(token) {
       if (top.tagName === "style") {
         addCSSRules(top.children[0].content);
       }
+      layout(top);
       stack.pop();
     }
     currentTextNode = null;
