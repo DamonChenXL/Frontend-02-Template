@@ -1,5 +1,7 @@
 const net = require("net");
 const parser = require("./parser.js");
+const render = require("./render.js");
+
 class Request {
   constructor(options) {
     this.method = options.method || "GET";
@@ -11,24 +13,24 @@ class Request {
     if (!this.headers["Content-Type"]) {
       this.headers["Content-Type"] = "application/x-www-form-urlencoded";
     }
-    if (this.headers["Content-Type"] === "application/json") {
+
+    if (this.headers["Content-Type"] == "application/json")
       this.bodyText = JSON.stringify(this.body);
-    } else if (
-      this.headers["Content-Type"] === "application/x-www-form-urlencoded"
-    ) {
+    else if (
+      this.headers["Content-Type"] == "application/x-www-form-urlencoded"
+    )
       this.bodyText = Object.keys(this.body)
         .map((key) => `${key}=${encodeURIComponent(this.body[key])}`)
         .join("&");
-    }
+
     this.headers["Content-Length"] = this.bodyText.length;
   }
+
   send(connection) {
     return new Promise((resolve, reject) => {
-      //......
       const parser = new ResponseParser();
-      //   console.log(this.toString());
       if (connection) {
-        connection.write(this.toString());
+        connection.write(this.toSring());
       } else {
         connection = net.createConnection(
           {
@@ -39,27 +41,33 @@ class Request {
             connection.write(this.toString());
           }
         );
-      }
-      connection.on("data", (data) => {
-        // console.log(data.toString());
-        parser.receive(data.toString());
-        if (parser.isFinished) {
-          resolve(parser.response);
+        connection.on("data", (data) => {
+          console.log(data.toString());
+          parser.receive(data.toString());
+          if (parser.isFinisned) {
+            resolve(parser.response);
+            connection.end();
+          }
+        });
+        connection.on("error", (err) => {
+          reject(err);
           connection.end();
-        }
-      });
-      connection.on("error", (err) => {
-        reject(err);
-        connection.end();
-      });
+        });
+      }
     });
   }
+
   toString() {
-    return `${this.method} ${this.path} HTTP/1.1\r\n${Object.keys(this.headers)
-      .map((key) => `${key}: ${this.headers[key]}`)
-      .join("\r\n")}\r\n\r\n${this.bodyText}`;
+    let str = `${this.method} ${this.path} HTTP/1.1\r
+${Object.keys(this.headers)
+  .map((key) => `${key}: ${this.headers[key]}`)
+  .join("\r\n")}\r
+\r
+${this.bodyText}`;
+    return str;
   }
 }
+
 class ResponseParser {
   constructor() {
     this.WAITING_STATUS_LINE = 0;
@@ -78,9 +86,11 @@ class ResponseParser {
     this.headerValue = "";
     this.bodyParser = null;
   }
-  get isFinished() {
+
+  get isFinisned() {
     return this.bodyParser && this.bodyParser.isFinished;
   }
+
   get response() {
     this.statusLine.match(/HTTP\/1.1 ([0-9]+) ([\s\S]+)/);
     return {
@@ -90,13 +100,14 @@ class ResponseParser {
       body: this.bodyParser.content.join(""),
     };
   }
+
   receive(string) {
     for (let i = 0; i < string.length; i++) {
       this.receiveChar(string.charAt(i));
     }
   }
+
   receiveChar(char) {
-    //类似状态机代码
     if (this.current === this.WAITING_STATUS_LINE) {
       if (char === "\r") {
         this.current = this.WAITING_STATUS_LINE_END;
@@ -144,18 +155,21 @@ class ResponseParser {
     }
   }
 }
+
 class TrunkedBodyParser {
   constructor() {
     this.WAITING_LENGTH = 0;
     this.WAITING_LENGTH_LINE_END = 1;
-    this.READING_TRUNK = 2;
+    this.READING_CHUNK = 2;
     this.WAITING_NEW_LINE = 3;
     this.WAITING_NEW_LINE_END = 4;
+
+    this.current = this.WAITING_LENGTH;
     this.length = 0;
     this.content = [];
     this.isFinished = false;
-    this.current = this.WAITING_LENGTH;
   }
+
   receiveChar(char) {
     if (this.current === this.WAITING_LENGTH) {
       if (char === "\r") {
@@ -169,9 +183,9 @@ class TrunkedBodyParser {
       }
     } else if (this.current === this.WAITING_LENGTH_LINE_END) {
       if (char === "\n") {
-        this.current = this.READING_TRUNK;
+        this.current = this.READING_CHUNK;
       }
-    } else if (this.current === this.READING_TRUNK) {
+    } else if (this.current == this.READING_CHUNK) {
       this.content.push(char);
       this.length--;
       if (this.length === 0) {
@@ -181,13 +195,14 @@ class TrunkedBodyParser {
       if (char === "\r") {
         this.current = this.WAITING_NEW_LINE_END;
       }
-    } else if (this.current === this.WAITING_NEW_LINE) {
+    } else if (this.current === this.WAITING_NEW_LINE_END) {
       if (char === "\n") {
-        this.current = this.WAITING_LENGTH_LINE_END;
+        this.current = this.WAITING_LENGTH;
       }
     }
   }
 }
+
 void (async function () {
   let request = new Request({
     method: "POST",
@@ -198,11 +213,17 @@ void (async function () {
       ["X-Foo2"]: "customed",
     },
     body: {
-      name: "Damon",
+      name: "winter",
     },
   });
+
   let response = await request.send();
+
   let dom = parser.parseHTML(response.body);
-  console.log(JSON.stringify(dom, null, "   "));
-  console.log("");
+
+  let viewport = images(800, 600);
+
+  render(viewport, dom);
+
+  viewport.save("viewport.jpg");
 })();
