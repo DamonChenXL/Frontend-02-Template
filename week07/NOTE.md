@@ -12,3 +12,29 @@
 - content-box (content=width)
 - border-box (border+padding+content=width
   )
+
+#### CSS 排版 | 正常流
+
+##### 正常流排版
+
+- 收集盒进行
+- 计算盒在行中的排布
+- 计算行的排布
+
+> BFC: 从上往下排布的上下文 IFC:从左到右排列的上下文
+
+#### CSS 排版 | 正常流的行级排布
+
+##### vertical-align
+
+- text-bottom
+- text-top
+- baseline
+- line-top
+- line-bottom
+
+#### CSS 排版 | 正常流的块级排布
+
+##### float 与 clear
+
+##### 只有BFC正常流才会产生 margin collapse
